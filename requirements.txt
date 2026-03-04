@@ -1,0 +1,2 @@
+python-telegram-bot[callback-data]~=21.9
+httpx~=0.28

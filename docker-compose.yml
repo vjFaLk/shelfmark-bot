@@ -1,0 +1,11 @@
+services:
+  shelfmark-bot:
+    build: .
+    container_name: shelfmark-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    # If Shelfmark is on the host network (e.g. 192.168.x.x),
+    # use host networking so the bot can reach it.
+    # Alternatively, put both on the same Docker network.
+    network_mode: host
