@@ -31,9 +31,6 @@ services:
       SHELFMARK_URL: ""
       ALLOWED_USER_IDS: ""   # optional, comma-separated
       LOG_LEVEL: "INFO"      # optional
-    # Host networking so the bot can reach a Shelfmark on your LAN.
-    # Alternatively, put both on the same Docker network.
-    network_mode: host
 ```
 
 | Variable | Required | Description |
