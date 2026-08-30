@@ -14,12 +14,26 @@ A Telegram bot for searching and downloading books via your [Shelfmark](https://
 
 Talk to [@BotFather](https://t.me/BotFather) on Telegram and create a new bot. Copy the token.
 
-### 2. Configure
+### 2. Configure & Run
 
-Copy the example env file and fill in your values:
+#### With Docker (recommended)
 
-```bash
-cp .env.example .env
+A prebuilt image is published to the GitHub Container Registry on every push to `master`. Save this as `docker-compose.yml`, fill in your values, and run `docker compose up -d`:
+
+```yaml
+services:
+  shelfmark-bot:
+    image: ghcr.io/vjfalk/shelfmark-bot:latest
+    container_name: shelfmark-bot
+    restart: unless-stopped
+    environment:
+      TELEGRAM_BOT_TOKEN: ""
+      SHELFMARK_URL: ""
+      ALLOWED_USER_IDS: ""   # optional, comma-separated
+      LOG_LEVEL: "INFO"      # optional
+    # Host networking so the bot can reach a Shelfmark on your LAN.
+    # Alternatively, put both on the same Docker network.
+    network_mode: host
 ```
 
 | Variable | Required | Description |
@@ -29,19 +43,13 @@ cp .env.example .env
 | `ALLOWED_USER_IDS` | No | Comma-separated Telegram user IDs to restrict access |
 | `LOG_LEVEL` | No | `DEBUG`, `INFO` (default), `WARNING`, `ERROR` |
 
-### 3. Run
-
-#### With Docker (recommended)
-
-```bash
-docker compose up -d --build
-```
+To build from source instead, replace `image:` with `build: .` and run `docker compose up -d --build`.
 
 #### Without Docker
 
 ```bash
 pip install -r requirements.txt
-python -m bot.main
+TELEGRAM_BOT_TOKEN=... SHELFMARK_URL=http://192.168.0.232:8084 python -m bot.main
 ```
 
 ## Usage

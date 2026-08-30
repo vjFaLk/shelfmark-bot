@@ -1,10 +1,13 @@
 services:
   shelfmark-bot:
-    build: .
+    image: ghcr.io/vjfalk/shelfmark-bot:latest
     container_name: shelfmark-bot
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      TELEGRAM_BOT_TOKEN: ""
+      SHELFMARK_URL: ""
+      ALLOWED_USER_IDS: ""   # optional, comma-separated
+      LOG_LEVEL: "INFO"      # optional
     # If Shelfmark is on the host network (e.g. 192.168.x.x),
     # use host networking so the bot can reach it.
     # Alternatively, put both on the same Docker network.
