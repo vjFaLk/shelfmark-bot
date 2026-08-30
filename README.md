@@ -4,10 +4,7 @@ A Telegram bot for searching and downloading books via your [Shelfmark](https://
 
 ## Features
 
-- **Search** books by title, author, or keyword
-- **Browse** detailed book information
-- **Find releases** from multiple sources (Direct Download, Prowlarr)
-- **Filter** releases by source
+- **Search** books by title, author, or keyword (Shelfmark **Direct** mode – queries the direct-download source)
 - **Download** with one-tap confirmation
 - **Monitor** download queue status
 
@@ -53,19 +50,17 @@ python -m bot.main
 | --- | --- |
 | `/search <query>` | Search for a book |
 | `/s <query>` | Short alias for search |
+| `/fast <query>` | Download the top result immediately, no picking |
 | `/status` | Check download queue |
 | `/help` | Show help |
 
-You can also just send a text message with a book title — the bot will search for it automatically.
+You can also just send a text message with a book title — it behaves like `/fast` and downloads the top result.
 
 ### Workflow
 
 1. Send a search query (e.g. `/search Dune`)
-2. Tap a book from the results
-3. Tap **Find Releases** to see available downloads
-4. Use filter buttons to switch between **Direct Download** and **Prowlarr** sources
-5. Tap a release to download
-6. Confirm the download
+2. Tap a result (each result is a downloadable file)
+3. Confirm the download
 7. Use `/status` to monitor progress
 
 ## Architecture

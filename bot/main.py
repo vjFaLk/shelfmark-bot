@@ -15,16 +15,12 @@ from telegram.ext import (
 )
 
 from bot.config import Config, load_config, setup_logging
-from bot.handlers.book import book_callback
 from bot.handlers.releases import (
-    auto_download_callback,
     cancel_download_callback,
     confirm_download_callback,
     download_callback,
-    release_filter_callback,
-    releases_callback,
 )
-from bot.handlers.search import page_callback, plain_text_search, search_command
+from bot.handlers.search import fast_command, plain_text_search, search_command
 from bot.handlers.status import refresh_status_callback, send_file_callback, status_command
 from bot.shelfmark_client import ShelfmarkClient
 from bot.utils import set_allowed_ids
@@ -38,6 +34,7 @@ async def post_init(application: Application) -> None:
         [
             BotCommand("search", "Search for a book"),
             BotCommand("s", "Search for a book (short)"),
+            BotCommand("fast", "Download the top result immediately"),
             BotCommand("status", "Check download queue status"),
             BotCommand("help", "Show help message"),
         ]
@@ -60,9 +57,10 @@ async def help_command(update: Update, context) -> None:
         "<b>Commands:</b>\n"
         "/search &lt;query&gt; — Search for a book\n"
         "/s &lt;query&gt; — Short alias for search\n"
+        "/fast &lt;query&gt; — Download the top result immediately\n"
         "/status — Check download queue\n"
         "/help — Show this message\n\n"
-        "Or just send a message with a book title to search."
+        "Or just send a book title as a message — same as /fast."
     )
     await update.effective_message.reply_text(text, parse_mode="HTML")  # type: ignore[union-attr]
 
@@ -102,14 +100,11 @@ def main() -> None:
 
     # Commands
     app.add_handler(CommandHandler(["search", "s"], search_command))
+    app.add_handler(CommandHandler("fast", fast_command))
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler(["help", "start"], help_command))
 
     # Callback queries (pattern-matched on the string prefix)
-    app.add_handler(CallbackQueryHandler(book_callback, pattern=r"^book:"))
-    app.add_handler(CallbackQueryHandler(auto_download_callback, pattern=r"^auto_dl:"))
-    app.add_handler(CallbackQueryHandler(releases_callback, pattern=r"^releases:"))
-    app.add_handler(CallbackQueryHandler(release_filter_callback, pattern=r"^rf:"))
     app.add_handler(CallbackQueryHandler(download_callback, pattern=r"^dl:"))
     app.add_handler(
         CallbackQueryHandler(confirm_download_callback, pattern=r"^confirm_dl:")
@@ -117,7 +112,6 @@ def main() -> None:
     app.add_handler(
         CallbackQueryHandler(cancel_download_callback, pattern=r"^cancel_dl")
     )
-    app.add_handler(CallbackQueryHandler(page_callback, pattern=r"^page:"))
     app.add_handler(
         CallbackQueryHandler(refresh_status_callback, pattern=r"^refresh_status")
     )

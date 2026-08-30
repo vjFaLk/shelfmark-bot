@@ -48,7 +48,7 @@ class ShelfmarkClient:
     ) -> Any:
         """Make an API request to Shelfmark."""
         resp = await self._client.request(
-            method, path, params=params, json=json_body
+            method, path, params=params, json=json_body, timeout=120
         )
 
         if resp.status_code >= 400:
@@ -73,7 +73,7 @@ class ShelfmarkClient:
         return await self._request("GET", "/api/config")
 
     # ------------------------------------------------------------------
-    # Metadata search (Universal mode)
+    # Search (Direct mode)
     # ------------------------------------------------------------------
 
     async def search_books(
@@ -81,67 +81,18 @@ class ShelfmarkClient:
         query: str,
         *,
         content_type: str = "ebook",
-        limit: int = 10,
-        page: int = 1,
         sort: str | None = None,
-    ) -> dict[str, Any]:
-        """Search for books via metadata providers.
-
-        Returns dict with keys: books, provider, query, page, total_found, has_more.
-        """
+    ) -> list[dict[str, Any]]:
+        """Search the direct-download source. Each result is a downloadable release."""
         params: dict[str, Any] = {
+            "source": "direct_download",
             "query": query,
             "content_type": content_type,
-            "limit": limit,
-            "page": page,
         }
         if sort:
             params["sort"] = sort
-        return await self._request("GET", "/api/metadata/search", params=params)
-
-    async def get_book(self, provider: str, book_id: str) -> dict[str, Any]:
-        """Get full metadata for a single book."""
-        return await self._request(
-            "GET", f"/api/metadata/book/{provider}/{book_id}"
-        )
-
-    async def get_metadata_providers(self) -> list[dict[str, Any]]:
-        return await self._request("GET", "/api/metadata/providers")
-
-    # ------------------------------------------------------------------
-    # Releases
-    # ------------------------------------------------------------------
-
-    async def get_release_sources(self) -> list[dict[str, Any]]:
-        return await self._request("GET", "/api/release-sources")
-
-    async def get_releases(
-        self,
-        provider: str,
-        book_id: str,
-        *,
-        title: str | None = None,
-        author: str | None = None,
-        content_type: str = "ebook",
-        source: str | None = None,
-    ) -> dict[str, Any]:
-        """Fetch available releases for a book.
-
-        Returns dict with keys: releases, book, sources_searched, errors,
-        column_config, search_info.
-        """
-        params: dict[str, Any] = {
-            "provider": provider,
-            "book_id": book_id,
-            "content_type": content_type,
-        }
-        if title:
-            params["title"] = title
-        if author:
-            params["author"] = author
-        if source:
-            params["source"] = source
-        return await self._request("GET", "/api/releases", params=params)
+        result = await self._request("GET", "/api/releases", params=params)
+        return result.get("releases") or []
 
     # ------------------------------------------------------------------
     # Downloads
@@ -167,6 +118,7 @@ class ShelfmarkClient:
             "source": source,
             "source_id": source_id,
             "title": title,
+            "search_mode": "direct",
         }
         if fmt:
             body["format"] = fmt

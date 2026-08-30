@@ -5,7 +5,7 @@ from __future__ import annotations
 import functools
 import html
 import logging
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
@@ -70,75 +70,26 @@ def truncate(text: str, max_len: int = 300) -> str:
     return text[: max_len - 1] + "…"
 
 
-def format_book_list_item(idx: int, book: dict[str, Any]) -> str:
-    """One-line summary for a book in search results."""
-    title = escape(book.get("title", "Unknown"))
-    authors = book.get("authors") or []
-    author_str = escape(", ".join(authors)) if authors else "Unknown author"
-    year = book.get("publish_year") or ""
-    year_str = f" ({year})" if year else ""
-    return f"<b>{idx}.</b> {title} — <i>{author_str}</i>{year_str}"
-
-
-def format_book_detail(book: dict[str, Any]) -> str:
-    """Multi-line detail view of a book."""
-    lines: list[str] = []
-    title = escape(book.get("title", "Unknown"))
-    subtitle = escape(book.get("subtitle"))
-    authors = book.get("authors") or []
-    author_str = escape(", ".join(authors)) if authors else "Unknown"
-
-    lines.append(f"📖 <b>{title}</b>")
-    if subtitle:
-        lines.append(f"<i>{subtitle}</i>")
-    lines.append(f"✍️ {author_str}")
-    if book.get("publisher"):
-        lines.append(f"🏢 {escape(book['publisher'])}")
-    if book.get("publish_year"):
-        lines.append(f"📅 {book['publish_year']}")
-    if book.get("language"):
-        lines.append(f"🌐 {escape(book['language'])}")
-    if book.get("isbn_13"):
-        lines.append(f"ISBN: <code>{escape(book['isbn_13'])}</code>")
-    elif book.get("isbn_10"):
-        lines.append(f"ISBN: <code>{escape(book['isbn_10'])}</code>")
-
-    # Series info
-    if book.get("series_name"):
-        series = escape(book["series_name"])
-        pos = book.get("series_position")
-        if pos:
-            series += f" #{pos}"
-        lines.append(f"📚 Series: {series}")
-
-    desc = book.get("description")
-    if desc:
-        # Strip HTML tags from description for clean Telegram display
-        import re
-
-        clean = re.sub(r"<[^>]+>", "", desc)
-        lines.append("")
-        lines.append(truncate(clean, 400))
-
-    return "\n".join(lines)
-
-
 def format_release(release: dict[str, Any]) -> str:
     """Short summary of a release for inline button label."""
-    fmt = release.get("format") or "?"
+    extra = release.get("extra") or {}
+    fmt = (release.get("format") or "?").upper()
     size = release.get("size") or "?"
-    source = release.get("source", "")
-    source_label = source.replace("_", " ").title()
-    parts = [fmt.upper(), size, source_label]
-    if release.get("seeders") is not None:
-        parts.append(f"S:{release['seeders']}")
-    return " · ".join(parts)
+    title = release.get("title") or "Unknown"
+    author = extra.get("author") or ""
+    label = f"{title[:40]} – {author[:25]}" if author else title[:60]
+    return f"{label} · {fmt} · {size}"
 
 
 def format_release_detail(release: dict[str, Any]) -> str:
     """Multi-line detail for a release used in confirmation."""
     lines: list[str] = []
+    extra = release.get("extra") or {}
     lines.append(f"📄 <b>{escape(release.get('title', 'Unknown'))}</b>")
+    if extra.get("author"):
+        lines.append(f"✍️ {escape(extra['author'])}")
+    if extra.get("year"):
+        lines.append(f"📅 {escape(extra['year'])}")
     if release.get("format"):
         lines.append(f"Format: {escape(release['format'].upper())}")
     if release.get("size"):
@@ -242,110 +193,18 @@ def format_status(status: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
 # ------------------------------------------------------------------
 
 
-def build_book_list_keyboard(
-    books: list[dict[str, Any]],
-    page: int,
-    has_more: bool,
-    query: str,
-) -> InlineKeyboardMarkup:
-    """Inline keyboard for search results – one button per book + pagination."""
-    buttons: list[list[InlineKeyboardButton]] = []
-    for i, book in enumerate(books):
-        provider = book.get("provider", "")
-        book_id = book.get("provider_id", "")
-        title = book.get("title", "Unknown")
-        authors = book.get("authors") or []
-        author_str = ", ".join(authors)[:40] if authors else ""
-        label = f"{title[:45]}"
-        if author_str:
-            label += f" – {author_str}"
-        if len(label) > 60:
-            label = label[:57] + "…"
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text=f"{i + 1}. {label}",
-                    callback_data=f"book:{provider}:{book_id}",
-                )
-            ]
-        )
-
-    # Pagination row
-    nav_row: list[InlineKeyboardButton] = []
-    if page > 1:
-        nav_row.append(
-            InlineKeyboardButton("◂ Prev", callback_data=f"page:{page - 1}")
-        )
-    if has_more:
-        nav_row.append(
-            InlineKeyboardButton("Next ▸", callback_data=f"page:{page + 1}")
-        )
-    if nav_row:
-        buttons.append(nav_row)
-
-    return InlineKeyboardMarkup(buttons)
-
-
 def build_release_list_keyboard(
     releases: list[dict[str, Any]],
-    provider: str,
-    book_id: str,
-    source_filter: str | None = None,
 ) -> InlineKeyboardMarkup:
-    """Inline keyboard for releases – one button per release + source filters."""
-    buttons: list[list[InlineKeyboardButton]] = []
-
-    # Source filter row
-    sources_present = sorted({r.get("source", "") for r in releases})
-    if len(sources_present) > 1:
-        filter_row: list[InlineKeyboardButton] = []
-        for src in sources_present:
-            label = src.replace("_", " ").title()
-            if source_filter == src:
-                label = f"• {label} •"
-            filter_row.append(
-                InlineKeyboardButton(
-                    text=label,
-                    callback_data=f"rf:{src}:{provider}:{book_id}",
-                )
-            )
-        # "All" button
-        all_label = "• All •" if source_filter is None else "All"
-        filter_row.insert(
-            0,
-            InlineKeyboardButton(
-                text=all_label,
-                callback_data=f"rf:all:{provider}:{book_id}",
-            ),
-        )
-        buttons.append(filter_row)
-
-    # Filter releases
-    filtered = releases
-    if source_filter:
-        filtered = [r for r in releases if r.get("source") == source_filter]
-
-    for release in filtered[:20]:  # cap to avoid Telegram limits
-        label = format_release(release)
-        source = release.get("source", "")
-        source_id = release.get("source_id", "")
-        buttons.append(
+    """Inline keyboard for search results – one button per release."""
+    return InlineKeyboardMarkup(
+        [
             [
                 InlineKeyboardButton(
-                    text=label,
-                    callback_data=f"dl:{source}:{source_id}",
+                    text=f"{i + 1}. {format_release(r)}",
+                    callback_data=f"dl:{r.get('source', '')}:{r.get('source_id', '')}",
                 )
             ]
-        )
-
-    # Back button
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                "◂ Back to book",
-                callback_data=f"book:{provider}:{book_id}",
-            )
+            for i, r in enumerate(releases[:20])  # cap to avoid Telegram limits
         ]
     )
-
-    return InlineKeyboardMarkup(buttons)
