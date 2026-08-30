@@ -86,3 +86,7 @@ bot/
 ## License
 
 MIT
+
+## License
+
+[MIT](LICENSE)
