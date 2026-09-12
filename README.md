@@ -7,6 +7,7 @@ A Telegram bot for searching and downloading books via your [Shelfmark](https://
 - **Search** books by title, author, or keyword (Shelfmark **Direct** mode – queries the direct-download source)
 - **Download** with one-tap confirmation
 - **Monitor** download queue status
+- **Email** a book to your e-reader via [Grimmory](https://github.com/grimmory-tools/grimmory)'s Email Book → Quick Send (optional)
 
 ## Quick Start
 
@@ -31,6 +32,9 @@ services:
       SHELFMARK_URL: ""
       ALLOWED_USER_IDS: ""   # optional, comma-separated
       LOG_LEVEL: "INFO"      # optional
+      # GRIMMORY_URL: ""       # optional, enables /email
+      # GRIMMORY_USERNAME: ""
+      # GRIMMORY_PASSWORD: ""
 ```
 
 | Variable | Required | Description |
@@ -39,6 +43,11 @@ services:
 | `SHELFMARK_URL` | Yes | URL of your Shelfmark instance (e.g. `http://192.168.0.232:8084`) |
 | `ALLOWED_USER_IDS` | No | Comma-separated Telegram user IDs to restrict access |
 | `LOG_LEVEL` | No | `DEBUG`, `INFO` (default), `WARNING`, `ERROR` |
+| `GRIMMORY_URL` | No | URL of your Grimmory instance (e.g. `http://192.168.0.232:6060`). Enables `/email` together with the two below. |
+| `GRIMMORY_USERNAME` | No | Grimmory user with the *email book* permission (Grimmory has no API keys, so a login is required) |
+| `GRIMMORY_PASSWORD` | No | Password for that user |
+
+For `/email` to work, Shelfmark must download into a Grimmory library folder that has *watch* enabled, and the Grimmory user needs a default email provider and a default recipient configured (Settings → Email).
 
 To build from source instead, replace `image:` with `build: .` and run `docker compose up -d --build`.
 
@@ -56,6 +65,7 @@ TELEGRAM_BOT_TOKEN=... SHELFMARK_URL=http://192.168.0.232:8084 python -m bot.mai
 | `/search <query>` | Search for a book |
 | `/s <query>` | Short alias for search |
 | `/fast <query>` | Download the top result immediately, no picking |
+| `/email <query>` | Like `/fast`, then trigger Grimmory Quick Send once the book lands in the library |
 | `/status` | Check download queue |
 | `/help` | Show help |
 
@@ -75,12 +85,13 @@ bot/
 ├── main.py              # Entry point, handler registration
 ├── config.py            # Environment variable configuration
 ├── shelfmark_client.py  # Async HTTP client for Shelfmark API
+├── grimmory_client.py   # Async HTTP client for Grimmory API (login, newest books, Quick Send)
 ├── utils.py             # Formatting, keyboards, access control
 └── handlers/
-    ├── search.py        # /search command + plain text search
-    ├── book.py          # Book detail view
+    ├── search.py        # /search, /fast + plain text search
+    ├── email.py         # /email – fast download, then Grimmory Quick Send
     ├── releases.py      # Release listing, filtering, download
-    └── status.py        # /status command
+    └── status.py        # /status command, download polling
 ```
 
 ## License

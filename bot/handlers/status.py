@@ -153,17 +153,17 @@ async def send_file_callback(
     )
 
 
-async def poll_and_send_file(
+async def wait_for_download(
     chat_id: int,
     book_id: str,
     title: str,
     context: ContextTypes.DEFAULT_TYPE,
     max_wait: int = 600,
     interval: int = 10,
-) -> None:
-    """Poll Shelfmark status until the book is complete, then send the file.
+) -> bool:
+    """Poll Shelfmark status until the book completes (True) or fails/times out (False).
 
-    Called as a background task after a download is queued.
+    On failure the user is notified here; on timeout only a warning is logged.
     """
     import bot.state
     shelfmark = bot.state.shelfmark
@@ -179,39 +179,11 @@ async def poll_and_send_file(
             logger.debug("Poll status failed, retrying…", exc_info=True)
             continue
 
-        # Check if our book_id is in completed categories
         for key in ("complete", "done"):
             cat = status.get(key)
             if isinstance(cat, dict) and book_id in cat:
-                # Book is done — send the file
-                try:
-                    file_bytes, filename = await shelfmark.download_file(book_id)
-                    if len(file_bytes) <= _TG_FILE_LIMIT:
-                        await context.bot.send_document(
-                            chat_id=chat_id,
-                            document=io.BytesIO(file_bytes),
-                            filename=filename,
-                            caption=f"📚 {escape(filename)}",
-                            parse_mode=ParseMode.HTML,
-                            read_timeout=120,
-                            write_timeout=120,
-                        )
-                    else:
-                        await context.bot.send_message(
-                            chat_id=chat_id,
-                            text=f"✅ <b>{escape(title)}</b> finished downloading but the file is too large for Telegram ({len(file_bytes) / 1024 / 1024:.1f} MB).",
-                            parse_mode=ParseMode.HTML,
-                        )
-                except Exception:
-                    logger.error("Failed to send completed file", exc_info=True)
-                    await context.bot.send_message(
-                        chat_id=chat_id,
-                        text=f"✅ <b>{escape(title)}</b> finished downloading. Use /status to get the file.",
-                        parse_mode=ParseMode.HTML,
-                    )
-                return
+                return True
 
-        # Check if it errored
         error_cat = status.get("error")
         if isinstance(error_cat, dict) and book_id in error_cat:
             item = error_cat[book_id]
@@ -221,7 +193,50 @@ async def poll_and_send_file(
                 text=f"❌ Download of <b>{escape(title)}</b> failed: {msg}",
                 parse_mode=ParseMode.HTML,
             )
-            return
+            return False
 
-    # Timed out
     logger.warning("Poll timed out for book %s after %ds", book_id, max_wait)
+    return False
+
+
+async def poll_and_send_file(
+    chat_id: int,
+    book_id: str,
+    title: str,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    """Wait for the download to finish, then send the file to the chat.
+
+    Called as a background task after a download is queued.
+    """
+    import bot.state
+    shelfmark = bot.state.shelfmark
+
+    if not await wait_for_download(chat_id, book_id, title, context):
+        return
+
+    try:
+        file_bytes, filename = await shelfmark.download_file(book_id)
+        if len(file_bytes) <= _TG_FILE_LIMIT:
+            await context.bot.send_document(
+                chat_id=chat_id,
+                document=io.BytesIO(file_bytes),
+                filename=filename,
+                caption=f"📚 {escape(filename)}",
+                parse_mode=ParseMode.HTML,
+                read_timeout=120,
+                write_timeout=120,
+            )
+        else:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"✅ <b>{escape(title)}</b> finished downloading but the file is too large for Telegram ({len(file_bytes) / 1024 / 1024:.1f} MB).",
+                parse_mode=ParseMode.HTML,
+            )
+    except Exception:
+        logger.error("Failed to send completed file", exc_info=True)
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"✅ <b>{escape(title)}</b> finished downloading. Use /status to get the file.",
+            parse_mode=ParseMode.HTML,
+        )

@@ -45,9 +45,9 @@ async def fast_command(
 
 
 async def _do_fast(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, query: str
+    update: Update, context: ContextTypes.DEFAULT_TYPE, query: str, email: bool = False
 ) -> None:
-    """Search by relevance and queue the top hit."""
+    """Search by relevance and queue the top hit (emailed via Grimmory if ``email``)."""
     msg = await update.effective_message.reply_text("⚡ Searching…")  # type: ignore[union-attr]
 
     import bot.state
@@ -64,7 +64,7 @@ async def _do_fast(
 
     # Shelfmark returns relevance order, stable-sorted by preferred format → [0] is best
     text, keyboard = await queue_download(
-        releases[0], update.effective_chat.id, context  # type: ignore[union-attr]
+        releases[0], update.effective_chat.id, context, email=email  # type: ignore[union-attr]
     )
     await msg.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 

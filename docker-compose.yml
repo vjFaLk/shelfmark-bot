@@ -8,3 +8,7 @@ services:
       SHELFMARK_URL: ""
       ALLOWED_USER_IDS: ""   # optional, comma-separated
       LOG_LEVEL: "INFO"      # optional
+      # Optional: enables /email (Grimmory Email Book → Quick Send)
+      # GRIMMORY_URL: ""
+      # GRIMMORY_USERNAME: ""
+      # GRIMMORY_PASSWORD: ""

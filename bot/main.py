@@ -15,6 +15,8 @@ from telegram.ext import (
 )
 
 from bot.config import Config, load_config, setup_logging
+from bot.grimmory_client import GrimmoryClient
+from bot.handlers.email import email_command
 from bot.handlers.releases import (
     cancel_download_callback,
     confirm_download_callback,
@@ -35,6 +37,7 @@ async def post_init(application: Application) -> None:
             BotCommand("search", "Search for a book"),
             BotCommand("s", "Search for a book (short)"),
             BotCommand("fast", "Download the top result immediately"),
+            BotCommand("email", "Download the top result and email it via Grimmory"),
             BotCommand("status", "Check download queue status"),
             BotCommand("help", "Show help message"),
         ]
@@ -46,7 +49,9 @@ async def post_shutdown(application: Application) -> None:
     import bot.state
     if bot.state.shelfmark:
         await bot.state.shelfmark.close()
-    logger.info("Shelfmark client closed.")
+    if bot.state.grimmory:
+        await bot.state.grimmory.close()
+    logger.info("HTTP clients closed.")
 
 
 async def help_command(update: Update, context) -> None:
@@ -58,6 +63,7 @@ async def help_command(update: Update, context) -> None:
         "/search &lt;query&gt; — Search for a book\n"
         "/s &lt;query&gt; — Short alias for search\n"
         "/fast &lt;query&gt; — Download the top result immediately\n"
+        "/email &lt;query&gt; — Download the top result and email it via Grimmory Quick Send\n"
         "/status — Check download queue\n"
         "/help — Show this message\n\n"
         "Or just send a book title as a message — same as /fast."
@@ -82,6 +88,13 @@ def main() -> None:
     # Initialise the Shelfmark HTTP client
     import bot.state
     bot.state.shelfmark = ShelfmarkClient(base_url=cfg.shelfmark_url)
+    if cfg.grimmory_enabled:
+        bot.state.grimmory = GrimmoryClient(
+            cfg.grimmory_url, cfg.grimmory_username, cfg.grimmory_password
+        )
+        logger.info("Grimmory URL: %s (/email enabled)", cfg.grimmory_url)
+    else:
+        logger.info("Grimmory not configured – /email disabled.")
 
     # Build Application
     app = (
@@ -101,6 +114,7 @@ def main() -> None:
     # Commands
     app.add_handler(CommandHandler(["search", "s"], search_command))
     app.add_handler(CommandHandler("fast", fast_command))
+    app.add_handler(CommandHandler("email", email_command))
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler(["help", "start"], help_command))
 

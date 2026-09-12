@@ -13,6 +13,13 @@ class Config:
     allowed_user_ids: list[int] = field(default_factory=list)
     log_level: str = "INFO"
     search_page_size: int = 10
+    grimmory_url: str = ""
+    grimmory_username: str = ""
+    grimmory_password: str = ""
+
+    @property
+    def grimmory_enabled(self) -> bool:
+        return bool(self.grimmory_url and self.grimmory_username and self.grimmory_password)
 
 
 def load_config() -> Config:
@@ -59,6 +66,9 @@ def load_config() -> Config:
         shelfmark_url=url,
         allowed_user_ids=allowed_ids,
         log_level=log_level,
+        grimmory_url=os.environ.get("GRIMMORY_URL", "").rstrip("/"),
+        grimmory_username=os.environ.get("GRIMMORY_USERNAME", ""),
+        grimmory_password=os.environ.get("GRIMMORY_PASSWORD", ""),
     )
 
 

@@ -116,17 +116,30 @@ async def confirm_download_callback(
 
 
 async def queue_download(
-    release: dict[str, Any], chat_id: int, context: ContextTypes.DEFAULT_TYPE
+    release: dict[str, Any],
+    chat_id: int,
+    context: ContextTypes.DEFAULT_TYPE,
+    email: bool = False,
 ) -> tuple[str, InlineKeyboardMarkup | None]:
     """Queue a release and start background polling to auto-send the file.
 
+    With ``email=True`` the file is instead emailed via Grimmory Quick Send once
+    it lands in the Grimmory library.
     Returns (message_text, keyboard) for the caller to display.
     """
     import asyncio
     import bot.state
+    from bot.handlers.email import poll_and_email
     from bot.handlers.status import poll_and_send_file
 
     title = release.get("title", "Unknown")
+    if email:
+        # Snapshot newest Grimmory book id before the download so we can spot the new one.
+        # Also fails fast on bad credentials before anything is queued.
+        try:
+            watermark = await bot.state.grimmory.latest_book_id()
+        except Exception as exc:  # GrimmoryAPIError or connection errors
+            return f"❌ Grimmory error: {escape(str(exc))}", None
     try:
         result = await bot.state.shelfmark.download_release(
             source=release.get("source", ""),
@@ -142,9 +155,13 @@ async def queue_download(
         return f"❌ Download failed: {escape(str(exc))}", None
 
     # source_id (MD5) is the book_id Shelfmark reports in /api/status
-    asyncio.create_task(
-        poll_and_send_file(chat_id, release.get("source_id", ""), title, context)
-    )
+    book_id = release.get("source_id", "")
+    if email:
+        asyncio.create_task(poll_and_email(chat_id, book_id, title, watermark, context))
+        outro = "I'll email it via Grimmory when it lands."
+    else:
+        asyncio.create_task(poll_and_send_file(chat_id, book_id, title, context))
+        outro = "I'll send you the file when it's ready."
     keyboard = InlineKeyboardMarkup(
         [[InlineKeyboardButton("📊 Check Status", callback_data="refresh_status")]]
     )
@@ -152,7 +169,7 @@ async def queue_download(
         f"✅ <b>Download queued!</b>\n\n"
         f"Title: {escape(title)}\n"
         f"Status: {result.get('status', 'unknown')}\n\n"
-        f"I'll send you the file when it's ready.",
+        f"{outro}",
         keyboard,
     )
 
