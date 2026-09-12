@@ -63,9 +63,9 @@ class GrimmoryClient:
         return None if resp.status_code == 204 else resp.json()
 
     async def newest_books(self, limit: int = 10) -> list[dict[str, Any]]:
-        """Newest books first (by id, so it's immune to clock skew)."""
+        """Newest books first. Filtering still uses id, so no clock-skew issues."""
         result = await self._request(
-            "GET", "/api/v1/books/page", params={"sort": "-id", "size": limit}
+            "GET", "/api/v1/books/page", params={"sort": "-addedOn", "size": limit}
         )
         return result.get("content") or []
 
