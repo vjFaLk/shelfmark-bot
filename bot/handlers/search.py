@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+import re
+from difflib import SequenceMatcher
+from typing import Any, TYPE_CHECKING
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -16,6 +18,31 @@ if TYPE_CHECKING:
     from telegram.ext import ContextTypes
 
 logger = logging.getLogger(__name__)
+
+_JUNK_TITLE = re.compile(
+    r"\b(summary|study guide|analysis|workbook|sparknotes|cliffsnotes|boxed? set)\b",
+    re.IGNORECASE,
+)
+
+
+def _score(query: str, release: dict[str, Any]) -> float:
+    """Fuzzy similarity of the query to the title, or to title + author."""
+    title = (release.get("title") or "").lower()
+    author = ((release.get("extra") or {}).get("author") or "").lower()
+    q = query.lower()
+    return max(
+        SequenceMatcher(None, q, title).ratio(),
+        SequenceMatcher(None, q, f"{title} {author}").ratio(),
+    )
+
+
+def pick_best(query: str, releases: list[dict[str, Any]]) -> dict[str, Any]:
+    """Drop summaries/study guides, then pick the closest title match.
+
+    Ties keep Shelfmark's relevance order (max returns the first maximum).
+    """
+    clean = [r for r in releases if not _JUNK_TITLE.search(r.get("title") or "")] or releases
+    return max(clean, key=lambda r: _score(query, r))
 
 
 @restricted
@@ -35,17 +62,30 @@ async def search_command(
 async def fast_command(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    """Handle /fast <query> – download the top search result without asking."""
+    """Handle /fast <query> – queue the top search result without asking."""
     if not context.args:
         await update.effective_message.reply_text(  # type: ignore[union-attr]
-            "Usage: /fast <query>\n\nDownloads the most relevant result immediately."
+            "Usage: /fast <query>\n\nQueues the most relevant result immediately."
         )
         return
     await _do_fast(update, context, " ".join(context.args))
 
 
+@restricted
+async def send_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle /send <query> – like /fast, but the file is sent back here when ready."""
+    if not context.args:
+        await update.effective_message.reply_text(  # type: ignore[union-attr]
+            "Usage: /send <query>\n\nLike /fast, but sends the file back to this chat."
+        )
+        return
+    await _do_fast(update, context, " ".join(context.args), send_file=True)
+
+
 async def _do_fast(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, query: str
+    update: Update, context: ContextTypes.DEFAULT_TYPE, query: str, send_file: bool = False
 ) -> None:
     """Search by relevance and queue the top hit."""
     msg = await update.effective_message.reply_text("⚡ Searching…")  # type: ignore[union-attr]
@@ -62,9 +102,8 @@ async def _do_fast(
         await msg.edit_text("📭 No books found. Try a different query.")
         return
 
-    # Shelfmark returns relevance order, stable-sorted by preferred format → [0] is best
     text, keyboard = await queue_download(
-        releases[0], update.effective_chat.id, context  # type: ignore[union-attr]
+        pick_best(query, releases), update.effective_chat.id, context, send_file=send_file  # type: ignore[union-attr]
     )
     await msg.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
@@ -73,12 +112,13 @@ async def _do_fast(
 async def plain_text_search(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    """Treat any plain text message as a /fast query."""
+    """Treat a plain text message as a /fast query; multiple lines = bulk queue."""
     if not update.effective_message or not update.effective_message.text:
         return
-    query = update.effective_message.text.strip()
-    if query:
-        await _do_fast(update, context, query)
+    # ponytail: sequential and unbounded; cap or summarise if batches get large
+    for line in update.effective_message.text.splitlines():
+        if line.strip():
+            await _do_fast(update, context, line.strip())
 
 
 async def _do_search(

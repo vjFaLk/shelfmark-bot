@@ -22,7 +22,7 @@ from bot.handlers.releases import (
     confirm_download_callback,
     download_callback,
 )
-from bot.handlers.search import fast_command, plain_text_search, search_command
+from bot.handlers.search import fast_command, plain_text_search, search_command, send_command
 from bot.handlers.status import refresh_status_callback, send_file_callback, status_command
 from bot.shelfmark_client import ShelfmarkClient
 from bot.utils import set_allowed_ids
@@ -36,7 +36,8 @@ async def post_init(application: Application) -> None:
         [
             BotCommand("search", "Search for a book"),
             BotCommand("s", "Search for a book (short)"),
-            BotCommand("fast", "Download the top result immediately"),
+            BotCommand("fast", "Queue the top result immediately"),
+            BotCommand("send", "Like /fast, but send the file back here"),
             BotCommand("email", "Search, pick, and email via Grimmory"),
             BotCommand("status", "Check download queue status"),
             BotCommand("help", "Show help message"),
@@ -62,11 +63,14 @@ async def help_command(update: Update, context) -> None:
         "<b>Commands:</b>\n"
         "/search &lt;query&gt; — Search for a book\n"
         "/s &lt;query&gt; — Short alias for search\n"
-        "/fast &lt;query&gt; — Download the top result immediately\n"
+        "/fast &lt;query&gt; — Queue the top result immediately\n"
+        "/send &lt;query&gt; — Like /fast, but the file is sent back to this chat\n"
         "/email &lt;query&gt; — Like /search, but the pick is emailed via Grimmory Quick Send\n"
         "/status — Check download queue\n"
         "/help — Show this message\n\n"
-        "Or just send a book title as a message — same as /fast."
+        "Or just send a book title as a message — same as /fast. "
+        "Several titles, one per line, are queued in turn.\n"
+        "Files are never sent back unless you use /send — fetch them via /status."
     )
     await update.effective_message.reply_text(text, parse_mode="HTML")  # type: ignore[union-attr]
 
@@ -114,6 +118,7 @@ def main() -> None:
     # Commands
     app.add_handler(CommandHandler(["search", "s"], search_command))
     app.add_handler(CommandHandler("fast", fast_command))
+    app.add_handler(CommandHandler("send", send_command))
     app.add_handler(CommandHandler("email", email_command))
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler(["help", "start"], help_command))

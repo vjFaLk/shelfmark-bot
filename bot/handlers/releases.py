@@ -126,11 +126,12 @@ async def queue_download(
     chat_id: int,
     context: ContextTypes.DEFAULT_TYPE,
     email: bool = False,
+    send_file: bool = False,
 ) -> tuple[str, InlineKeyboardMarkup | None]:
-    """Queue a release and start background polling to auto-send the file.
+    """Queue a release; by default nothing is sent back (fetch via /status).
 
-    With ``email=True`` the file is instead emailed via Grimmory Quick Send once
-    it lands in the Grimmory library.
+    With ``send_file=True`` a background poller sends the file to the chat when
+    it lands. With ``email=True`` it is instead emailed via Grimmory Quick Send.
     Returns (message_text, keyboard) for the caller to display.
     """
     import asyncio
@@ -165,9 +166,11 @@ async def queue_download(
     if email:
         asyncio.create_task(poll_and_email(chat_id, book_id, title, watermark, context))
         outro = "I'll email it via Grimmory when it lands."
-    else:
+    elif send_file:
         asyncio.create_task(poll_and_send_file(chat_id, book_id, title, context))
         outro = "I'll send you the file when it's ready."
+    else:
+        outro = "Use /status to fetch it."
     keyboard = InlineKeyboardMarkup(
         [[InlineKeyboardButton("📊 Check Status", callback_data="refresh_status")]]
     )

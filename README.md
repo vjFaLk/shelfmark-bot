@@ -64,12 +64,15 @@ TELEGRAM_BOT_TOKEN=... SHELFMARK_URL=http://192.168.0.232:8084 python -m bot.mai
 | --- | --- |
 | `/search <query>` | Search for a book |
 | `/s <query>` | Short alias for search |
-| `/fast <query>` | Download the top result immediately, no picking |
+| `/fast <query>` | Queue the top result immediately, no picking |
+| `/send <query>` | Like `/fast`, but the file is sent back to the chat when ready |
 | `/email <query>` | Like `/search`, but the confirmed pick is emailed via Grimmory Quick Send once it lands in the library |
 | `/status` | Check download queue |
 | `/help` | Show help |
 
-You can also just send a text message with a book title — it behaves like `/fast` and downloads the top result.
+You can also just send a text message with a book title — it behaves like `/fast` and queues the top result. Several titles, one per line, are queued in turn.
+
+Files are never sent back to Telegram unless you use `/send` — fetch them via `/status`.
 
 ### Workflow
 
@@ -88,7 +91,7 @@ bot/
 ├── grimmory_client.py   # Async HTTP client for Grimmory API (login, newest books, Quick Send)
 ├── utils.py             # Formatting, keyboards, access control
 └── handlers/
-    ├── search.py        # /search, /fast + plain text search
+    ├── search.py        # /search, /fast, /send + plain text search
     ├── email.py         # /email – fast download, then Grimmory Quick Send
     ├── releases.py      # Release listing, filtering, download
     └── status.py        # /status command, download polling
