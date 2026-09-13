@@ -1,4 +1,4 @@
-"""Email handler – /email <query>: fast-download, then Grimmory Quick Send."""
+"""Email handler – /email <query>: search, pick, download, then Grimmory Quick Send."""
 
 from __future__ import annotations
 
@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 async def email_command(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    """Handle /email <query> – download the top result and email it via Grimmory."""
+    """Handle /email <query> – like /search, but the confirmed pick is emailed via Grimmory."""
     import bot.state
-    from bot.handlers.search import _do_fast
+    from bot.handlers.search import _do_search
 
     if not bot.state.grimmory:
         await update.effective_message.reply_text(  # type: ignore[union-attr]
@@ -35,10 +35,10 @@ async def email_command(
         return
     if not context.args:
         await update.effective_message.reply_text(  # type: ignore[union-attr]
-            "Usage: /email <query>\n\nDownloads the top result and emails it via Grimmory Quick Send."
+            "Usage: /email <query>\n\nPick a result; it is downloaded and emailed via Grimmory Quick Send."
         )
         return
-    await _do_fast(update, context, " ".join(context.args), email=True)
+    await _do_search(update, context, " ".join(context.args), email=True)
 
 
 def _book_title(book: dict[str, Any]) -> str:

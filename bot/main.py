@@ -37,7 +37,7 @@ async def post_init(application: Application) -> None:
             BotCommand("search", "Search for a book"),
             BotCommand("s", "Search for a book (short)"),
             BotCommand("fast", "Download the top result immediately"),
-            BotCommand("email", "Download the top result and email it via Grimmory"),
+            BotCommand("email", "Search, pick, and email via Grimmory"),
             BotCommand("status", "Check download queue status"),
             BotCommand("help", "Show help message"),
         ]
@@ -63,7 +63,7 @@ async def help_command(update: Update, context) -> None:
         "/search &lt;query&gt; — Search for a book\n"
         "/s &lt;query&gt; — Short alias for search\n"
         "/fast &lt;query&gt; — Download the top result immediately\n"
-        "/email &lt;query&gt; — Download the top result and email it via Grimmory Quick Send\n"
+        "/email &lt;query&gt; — Like /search, but the pick is emailed via Grimmory Quick Send\n"
         "/status — Check download queue\n"
         "/help — Show this message\n\n"
         "Or just send a book title as a message — same as /fast."

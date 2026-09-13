@@ -65,7 +65,7 @@ TELEGRAM_BOT_TOKEN=... SHELFMARK_URL=http://192.168.0.232:8084 python -m bot.mai
 | `/search <query>` | Search for a book |
 | `/s <query>` | Short alias for search |
 | `/fast <query>` | Download the top result immediately, no picking |
-| `/email <query>` | Like `/fast`, then trigger Grimmory Quick Send once the book lands in the library |
+| `/email <query>` | Like `/search`, but the confirmed pick is emailed via Grimmory Quick Send once it lands in the library |
 | `/status` | Check download queue |
 | `/help` | Show help |
 

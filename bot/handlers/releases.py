@@ -64,7 +64,8 @@ async def download_callback(
     # Store for confirmation
     context.user_data["pending_download"] = release  # type: ignore[index]
 
-    text = "⬇️ <b>Confirm download?</b>\n\n" + format_release_detail(release)
+    action = "download &amp; email" if context.user_data.get("email") else "download"  # type: ignore[union-attr]
+    text = f"⬇️ <b>Confirm {action}?</b>\n\n" + format_release_detail(release)
 
     keyboard = InlineKeyboardMarkup(
         [
@@ -111,7 +112,12 @@ async def confirm_download_callback(
         return
 
     await query_cb.edit_message_text("⏳ Queuing download…")
-    text, keyboard = await queue_download(release, update.effective_chat.id, context)  # type: ignore[union-attr]
+    text, keyboard = await queue_download(
+        release,
+        update.effective_chat.id,  # type: ignore[union-attr]
+        context,
+        email=bool(context.user_data.get("email")),  # type: ignore[union-attr]
+    )
     await query_cb.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
 
